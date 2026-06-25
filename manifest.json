@@ -1,0 +1,26 @@
+{
+  "name": "JSG Engineering & Interiors",
+  "short_name": "JSG",
+  "description": "Fabrication & Interiors — Gates, Grills, Kitchens, Furniture",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#14181D",
+  "theme_color": "#C7972C",
+  "orientation": "any",
+  "icons": [
+    {
+      "src": "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 192 192'%3E%3Crect width='192' height='192' fill='%2314181D'/%3E%3Ctext x='96' y='130' text-anchor='middle' font-size='90' font-family='Arial' fill='%23C7972C'%3EJ%3C/text%3E%3C/svg%3E",
+      "sizes": "192x192",
+      "type": "image/svg+xml"
+    },
+    {
+      "src": "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 512 512'%3E%3Crect width='512' height='512' fill='%2314181D'/%3E%3Ctext x='256' y='350' text-anchor='middle' font-size='240' font-family='Arial' fill='%23C7972C'%3EJ%3C/text%3E%3C/svg%3E",
+      "sizes": "512x512",
+      "type": "image/svg+xml"
+    }
+  ],
+  "screenshots": [],
+  "categories": ["business", "utilities"],
+  "lang": "en-IN",
+  "dir": "ltr"
+}
