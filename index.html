@@ -804,6 +804,38 @@ footer{background:var(--ink);border-top:1px solid var(--steel-line);padding:70px
     btn.textContent = 'Save Project to Firebase'; btn.disabled = false;
   };
 
+  // OWNER LOGIN — Signs in to Firebase with PIN + password
+  window.jsgOwnerLogin = async function() {
+    var pin = document.getElementById('dashPin').value.trim();
+    var pass = document.getElementById('dashOwnerPass').value;
+    var errEl = document.getElementById('dashLoginErr');
+    var btn = document.getElementById('dashLoginBtn');
+    if (pin !== '9008') {
+      errEl.textContent = 'Wrong PIN. Try again.';
+      errEl.style.display = 'block';
+      document.getElementById('dashPin').value = '';
+      return;
+    }
+    if (!pass) {
+      errEl.textContent = 'Please enter your Firebase password.';
+      errEl.style.display = 'block';
+      return;
+    }
+    btn.textContent = 'Signing in...'; btn.disabled = true;
+    errEl.style.display = 'none';
+    try {
+      await signInWithEmailAndPassword(auth, 'ajeet9008423323@gmail.com', pass);
+      sessionStorage.setItem('jsg_auth', '1');
+      document.getElementById('dashLoginBox').style.display = 'none';
+      document.getElementById('dashContent').style.display = 'block';
+      if (window.renderDashboard) window.renderDashboard();
+    } catch(e) {
+      errEl.textContent = 'Login failed: ' + (e.message || 'Check password');
+      errEl.style.display = 'block';
+      btn.textContent = 'Login →'; btn.disabled = false;
+    }
+  };
+
   // OWNER DASHBOARD — Save project to Firestore by client email
   window.jsgSaveProjectToFirestore = async function() {
     var btn = document.getElementById('dpAddBtn');
@@ -1878,8 +1910,9 @@ footer{background:var(--ink);border-top:1px solid var(--steel-line);padding:70px
       <h3 style="color:#F4F1E8;margin:0 0 6px;">Owner Login</h3>
       <p style="color:#6B7480;font-size:13px;margin:0 0 24px;">Access restricted to JSG admin only.</p>
       <div style="margin-bottom:14px;"><input type="password" id="dashPin" placeholder="Enter PIN" style="width:100%;padding:10px 14px;background:#14181D;border:1px solid #3D454D;color:#F4F1E8;border-radius:4px;font-size:15px;box-sizing:border-box;"></div>
-      <button id="dashLoginBtn" onclick="var p=document.getElementById('dashPin').value;if(p==='9008'){sessionStorage.setItem('jsg_auth','1');document.getElementById('dashLoginBox').style.display='none';document.getElementById('dashLoginErr').style.display='none';document.getElementById('dashContent').style.display='block';if(window.renderDashboard)window.renderDashboard();}else{document.getElementById('dashLoginErr').style.display='block';document.getElementById('dashPin').value='';}" style="width:100%;padding:11px;background:#C7972C;color:#1A1306;border:none;border-radius:4px;font-weight:700;font-size:15px;cursor:pointer;">Login →</button>
-      <p id="dashLoginErr" style="color:#E05050;font-size:12px;margin:10px 0 0;display:none;">Wrong PIN. Try again.</p>
+      <div style="margin-bottom:14px;"><input type="password" id="dashOwnerPass" placeholder="Firebase Password" style="width:100%;padding:10px 14px;background:#14181D;border:1px solid #3D454D;color:#F4F1E8;border-radius:4px;font-size:15px;box-sizing:border-box;"></div>
+      <button id="dashLoginBtn" onclick="window.jsgOwnerLogin()" style="width:100%;padding:11px;background:#C7972C;color:#1A1306;border:none;border-radius:4px;font-weight:700;font-size:15px;cursor:pointer;">Login →</button>
+      <p id="dashLoginErr" style="color:#E05050;font-size:12px;margin:10px 0 0;display:none;">Wrong PIN or password. Try again.</p>
     </div>
 
     <!-- Dashboard Content (hidden until login) -->
