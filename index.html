@@ -972,6 +972,16 @@ footer{background:var(--ink);border-top:1px solid var(--steel-line);padding:70px
       alert('Error: ' + e.message);
     }
   };
+  // OWNER LOGOUT
+  window.jsgOwnerLogout = async function() {
+    try { await signOut(auth); } catch(e) {}
+    document.getElementById('dashContent').style.display = 'none';
+    document.getElementById('dashLoginBox').style.display = 'block';
+    document.getElementById('dashPin').value = '';
+    document.getElementById('dashOwnerPass').value = '';
+    document.getElementById('dashLoginErr').style.display = 'none';
+  };
+
   window.jsgOwnerLogin = async function() {
     var pin = document.getElementById('dashPin').value.trim();
     var pass = document.getElementById('dashOwnerPass').value;
@@ -2073,6 +2083,7 @@ footer{background:var(--ink);border-top:1px solid var(--steel-line);padding:70px
         <h2 style="margin:4px 0 0;color:#F4F1E8;font-size:22px;">Business Dashboard</h2>
       </div>
       <button id="dashCloseBtn" onclick="document.getElementById('ownerDashOverlay').style.display='none';document.body.style.overflow='';" style="background:none;border:1px solid #3D454D;color:#B7BCC2;padding:8px 16px;border-radius:4px;cursor:pointer;font-size:13px;">✕ Close</button>
+      <button onclick="window.jsgOwnerLogout()" style="background:none;border:1px solid #E05050;color:#E05050;padding:8px 16px;border-radius:4px;cursor:pointer;font-size:13px;">Logout</button>
     </div>
 
     <!-- Login Gate -->
