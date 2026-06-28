@@ -590,7 +590,7 @@ footer{background:var(--ink);border-top:1px solid var(--steel-line);padding:70px
 <script type="module">
   import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js';
   import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut, onAuthStateChanged } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js';
-  import { getFirestore, doc, setDoc, getDoc, collection, addDoc, getDocs, query, where } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js';
+  import { getFirestore, doc, setDoc, getDoc, collection, addDoc, getDocs, query, where, updateDoc, deleteDoc } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js';
 
   const firebaseConfig = {
     apiKey: "AIzaSyDWalDLqpYDvFS_gUS0Ggy34D6S10Qic9M",
@@ -856,7 +856,122 @@ footer{background:var(--ink);border-top:1px solid var(--steel-line);padding:70px
     btn.textContent = 'Save Project to Firebase'; btn.disabled = false;
   };
 
-  // OWNER LOGIN — Signs in to Firebase with PIN + password
+  // LOAD FIREBASE PROJECTS into dashboard table
+  window.jsgLoadFirebaseProjects = async function() {
+    var tbody = document.getElementById('dashTableBody');
+    var noProj = document.getElementById('dashNoProjects');
+    if (!tbody) return;
+    tbody.innerHTML = '<tr><td colspan="7" style="padding:16px;color:#6B7480;text-align:center;">Loading...</td></tr>';
+    try {
+      const snap = await getDocs(collection(db, 'projects'));
+      if (snap.empty) {
+        tbody.innerHTML = '';
+        noProj.style.display = 'block';
+        return;
+      }
+      noProj.style.display = 'none';
+      const statusColors = { running:'#4A90D9', completed:'#5B8F5B', pending:'#C7972C', cancelled:'#E05050' };
+      const statusLabels = { running:'🔵 Running', completed:'✅ Done', pending:'⏳ Pending', cancelled:'❌ Cancelled' };
+      let rows = '';
+      snap.forEach(d => {
+        const p = d.data(); const id = d.id;
+        const paid = Number(p.paid)||0, total = Number(p.amount)||0;
+        rows += `<tr style="border-bottom:1px solid #252C35;">
+          <td style="padding:10px;color:#F4F1E8;">${p.clientName||''}</td>
+          <td style="padding:10px;color:#B7BCC2;">${p.project||''}</td>
+          <td style="padding:10px;text-align:right;color:#F4F1E8;">₹${total.toLocaleString('en-IN')}</td>
+          <td style="padding:10px;text-align:right;color:${paid>=total?'#5B8F5B':'#E05050'};">₹${paid.toLocaleString('en-IN')}</td>
+          <td style="padding:10px;text-align:center;"><span style="font-size:11px;padding:3px 8px;background:${statusColors[p.status]||'#3D454D'}22;color:${statusColors[p.status]||'#6B7480'};border-radius:3px;">${statusLabels[p.status]||p.status}</span></td>
+          <td style="padding:10px;text-align:center;"><button onclick="window.jsgOpenEdit('${id}','${(p.project||'').replace(/'/g,"\\'")}','${total}','${paid}','${p.progress||0}','${p.status||'running'}','${(p.notes||'').replace(/'/g,"\\'")}')" style="background:none;border:1px solid #3D454D;color:#C7972C;cursor:pointer;padding:4px 8px;border-radius:3px;font-size:12px;">✏️</button></td>
+          <td style="padding:10px;text-align:center;"><button onclick="window.jsgDeleteFirebaseProject('${id}')" style="background:none;border:none;color:#E05050;cursor:pointer;font-size:18px;">×</button></td>
+        </tr>`;
+      });
+      tbody.innerHTML = rows;
+    } catch(e) {
+      tbody.innerHTML = '<tr><td colspan="7" style="padding:16px;color:#E05050;text-align:center;">Error: ' + e.message + '</td></tr>';
+    }
+  };
+
+  // LOAD CLIENTS LIST
+  window.jsgLoadClients = async function() {
+    var el = document.getElementById('dashClientList');
+    if (!el) return;
+    el.textContent = 'Loading...';
+    try {
+      const snap = await getDocs(collection(db, 'clients'));
+      if (snap.empty) { el.textContent = 'No clients registered yet.'; return; }
+      let html = '<table style="width:100%;border-collapse:collapse;">';
+      html += '<tr><th style="text-align:left;padding:8px;color:#6B7480;font-size:12px;">Name</th><th style="text-align:left;padding:8px;color:#6B7480;font-size:12px;">Email</th><th style="text-align:left;padding:8px;color:#6B7480;font-size:12px;">Mobile</th><th style="text-align:left;padding:8px;color:#6B7480;font-size:12px;">Joined</th></tr>';
+      snap.forEach(d => {
+        const c = d.data();
+        const date = c.createdAt ? new Date(c.createdAt).toLocaleDateString('en-IN') : '-';
+        html += `<tr style="border-top:1px solid #252C35;">
+          <td style="padding:8px;color:#F4F1E8;">${c.name||'-'}</td>
+          <td style="padding:8px;color:#B7BCC2;">${c.email||'-'}</td>
+          <td style="padding:8px;color:#B7BCC2;">${c.mobile||'-'}</td>
+          <td style="padding:8px;color:#6B7480;">${date}</td>
+        </tr>`;
+      });
+      html += '</table>';
+      el.innerHTML = html;
+    } catch(e) {
+      el.textContent = 'Error: ' + e.message;
+    }
+  };
+
+  // OPEN EDIT MODAL
+  window.jsgOpenEdit = function(id, project, amount, paid, progress, status, notes) {
+    document.getElementById('dpEditId').value = id;
+    document.getElementById('dpEditProject').value = project;
+    document.getElementById('dpEditAmount').value = amount;
+    document.getElementById('dpEditPaid').value = paid;
+    document.getElementById('dpEditProgress').value = progress;
+    document.getElementById('dpEditStatus').value = status;
+    document.getElementById('dpEditNotes').value = notes;
+    document.getElementById('dpEditStatus2').style.display = 'none';
+    document.getElementById('dpEditModal').style.display = 'block';
+  };
+
+  // SAVE EDIT
+  window.jsgSaveEdit = async function() {
+    const id = document.getElementById('dpEditId').value;
+    const statusEl = document.getElementById('dpEditStatus2');
+    statusEl.style.display = 'none';
+    try {
+      await updateDoc(doc(db, 'projects', id), {
+        project: document.getElementById('dpEditProject').value.trim(),
+        amount: Number(document.getElementById('dpEditAmount').value) || 0,
+        paid: Number(document.getElementById('dpEditPaid').value) || 0,
+        progress: Number(document.getElementById('dpEditProgress').value) || 0,
+        status: document.getElementById('dpEditStatus').value,
+        notes: document.getElementById('dpEditNotes').value.trim()
+      });
+      statusEl.style.display = 'block';
+      statusEl.style.background = '#1A3D1A';
+      statusEl.style.color = '#5B8F5B';
+      statusEl.textContent = '✅ Saved!';
+      setTimeout(() => {
+        document.getElementById('dpEditModal').style.display = 'none';
+        window.jsgLoadFirebaseProjects();
+      }, 800);
+    } catch(e) {
+      statusEl.style.display = 'block';
+      statusEl.style.background = '#3D1515';
+      statusEl.style.color = '#E05050';
+      statusEl.textContent = 'Error: ' + e.message;
+    }
+  };
+
+  // DELETE FIREBASE PROJECT
+  window.jsgDeleteFirebaseProject = async function(id) {
+    if (!confirm('Yeh project delete karo?')) return;
+    try {
+      await deleteDoc(doc(db, 'projects', id));
+      window.jsgLoadFirebaseProjects();
+    } catch(e) {
+      alert('Error: ' + e.message);
+    }
+  };
   window.jsgOwnerLogin = async function() {
     var pin = document.getElementById('dashPin').value.trim();
     var pass = document.getElementById('dashOwnerPass').value;
@@ -881,6 +996,8 @@ footer{background:var(--ink);border-top:1px solid var(--steel-line);padding:70px
       document.getElementById('dashLoginBox').style.display = 'none';
       document.getElementById('dashContent').style.display = 'block';
       if (window.renderDashboard) window.renderDashboard();
+      if (window.jsgLoadFirebaseProjects) window.jsgLoadFirebaseProjects();
+      if (window.jsgLoadClients) window.jsgLoadClients();
     } catch(e) {
       errEl.textContent = 'Login failed: ' + (e.message || 'Check password');
       errEl.style.display = 'block';
@@ -943,6 +1060,7 @@ footer{background:var(--ink);border-top:1px solid var(--steel-line);padding:70px
       document.getElementById('dpAmount').value = '';
       document.getElementById('dpPaid').value = '';
       if (window.renderDashboard) window.renderDashboard();
+      if (window.jsgLoadFirebaseProjects) window.jsgLoadFirebaseProjects();
     } catch(e) {
       if (statusEl) { statusEl.textContent = '❌ Error: ' + e.message; statusEl.style.color = '#E05050'; statusEl.style.display = 'block'; }
     }
@@ -1999,7 +2117,10 @@ footer{background:var(--ink);border-top:1px solid var(--steel-line);padding:70px
 
       <!-- Projects Table -->
       <div style="background:#1B2026;border-radius:8px;padding:20px;margin-bottom:20px;overflow-x:auto;">
-        <h4 style="color:#C7972C;margin:0 0 16px;font-size:14px;letter-spacing:1px;">ALL PROJECTS</h4>
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
+          <h4 style="color:#C7972C;margin:0;font-size:14px;letter-spacing:1px;">ALL PROJECTS</h4>
+          <button onclick="window.jsgLoadFirebaseProjects()" style="background:#14181D;border:1px solid #3D454D;color:#B7BCC2;padding:6px 12px;border-radius:4px;font-size:12px;cursor:pointer;">🔄 Refresh</button>
+        </div>
         <table id="dashTable" style="width:100%;border-collapse:collapse;font-size:13px;">
           <thead>
             <tr style="border-bottom:1px solid #3D454D;">
@@ -2008,15 +2129,49 @@ footer{background:var(--ink);border-top:1px solid var(--steel-line);padding:70px
               <th style="text-align:right;padding:8px 10px;color:#6B7480;font-weight:500;">Amount</th>
               <th style="text-align:right;padding:8px 10px;color:#6B7480;font-weight:500;">Received</th>
               <th style="text-align:center;padding:8px 10px;color:#6B7480;font-weight:500;">Status</th>
+              <th style="text-align:center;padding:8px 10px;color:#6B7480;font-weight:500;">Edit</th>
               <th style="text-align:center;padding:8px 10px;color:#6B7480;font-weight:500;">Del</th>
             </tr>
           </thead>
           <tbody id="dashTableBody"></tbody>
         </table>
-        <p id="dashNoProjects" style="color:#6B7480;font-size:13px;text-align:center;padding:20px 0;">No projects yet. Add your first project above.</p>
+        <p id="dashNoProjects" style="color:#6B7480;font-size:13px;text-align:center;padding:20px 0;display:none;">No projects yet.</p>
       </div>
 
-      <!-- Revenue Chart (SVG canvas, drawn by JS) -->
+      <!-- Client List -->
+      <div style="background:#1B2026;border-radius:8px;padding:20px;margin-bottom:20px;">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
+          <h4 style="color:#C7972C;margin:0;font-size:14px;letter-spacing:1px;">REGISTERED CLIENTS</h4>
+          <button onclick="window.jsgLoadClients()" style="background:#14181D;border:1px solid #3D454D;color:#B7BCC2;padding:6px 12px;border-radius:4px;font-size:12px;cursor:pointer;">🔄 Refresh</button>
+        </div>
+        <div id="dashClientList" style="font-size:13px;color:#6B7480;">Loading...</div>
+      </div>
+
+      <!-- Edit Project Modal -->
+      <div id="dpEditModal" style="display:none;position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.85);z-index:9999;overflow-y:auto;">
+        <div style="max-width:480px;margin:60px auto;background:#1B2026;border-radius:8px;padding:28px 20px;">
+          <h4 style="color:#C7972C;margin:0 0 20px;font-size:15px;">EDIT PROJECT</h4>
+          <input type="hidden" id="dpEditId">
+          <div style="display:grid;gap:10px;margin-bottom:14px;">
+            <input type="text" id="dpEditProject" placeholder="Project name" style="padding:9px 12px;background:#14181D;border:1px solid #3D454D;color:#F4F1E8;border-radius:4px;font-size:13px;">
+            <input type="number" id="dpEditAmount" placeholder="Total Amount ₹" style="padding:9px 12px;background:#14181D;border:1px solid #3D454D;color:#F4F1E8;border-radius:4px;font-size:13px;">
+            <input type="number" id="dpEditPaid" placeholder="Amount Received ₹" style="padding:9px 12px;background:#14181D;border:1px solid #3D454D;color:#F4F1E8;border-radius:4px;font-size:13px;">
+            <input type="number" id="dpEditProgress" placeholder="Progress % (0-100)" min="0" max="100" style="padding:9px 12px;background:#14181D;border:1px solid #3D454D;color:#F4F1E8;border-radius:4px;font-size:13px;">
+            <select id="dpEditStatus" style="padding:9px 12px;background:#14181D;border:1px solid #3D454D;color:#F4F1E8;border-radius:4px;font-size:13px;">
+              <option value="running">🔵 Running</option>
+              <option value="completed">✅ Completed</option>
+              <option value="pending">⏳ Pending</option>
+              <option value="cancelled">❌ Cancelled</option>
+            </select>
+            <input type="text" id="dpEditNotes" placeholder="Notes" style="padding:9px 12px;background:#14181D;border:1px solid #3D454D;color:#F4F1E8;border-radius:4px;font-size:13px;">
+          </div>
+          <div id="dpEditStatus2" style="display:none;font-size:12px;padding:8px 12px;border-radius:4px;margin-bottom:10px;"></div>
+          <div style="display:flex;gap:10px;">
+            <button onclick="window.jsgSaveEdit()" style="flex:1;padding:10px;background:#C7972C;color:#1A1306;border:none;border-radius:4px;font-weight:700;cursor:pointer;">Save Changes</button>
+            <button onclick="document.getElementById('dpEditModal').style.display='none'" style="padding:10px 18px;background:#14181D;border:1px solid #3D454D;color:#B7BCC2;border-radius:4px;cursor:pointer;">Cancel</button>
+          </div>
+        </div>
+      </div>
       <div style="background:#1B2026;border-radius:8px;padding:20px;">
         <h4 style="color:#C7972C;margin:0 0 16px;font-size:14px;letter-spacing:1px;">MONTHLY REVENUE (₹)</h4>
         <div id="dashChartWrap" style="overflow-x:auto;">
