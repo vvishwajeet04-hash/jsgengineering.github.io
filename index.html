@@ -610,6 +610,7 @@ footer{background:var(--ink);border-top:1px solid var(--steel-line);padding:70px
 
   // Show dashboard after login
   window.jsgCpShowDashboard = async function(user, nameOverride) {
+    alert('DASHBOARD CALLED — uid: ' + user.uid);
     document.getElementById('cpAuthBox').style.display = 'none';
     document.getElementById('cpDashboard').style.display = 'block';
     let displayName = nameOverride || user.email;
