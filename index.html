@@ -672,8 +672,55 @@ footer{background:var(--ink);border-top:1px solid var(--steel-line);padding:70px
     try {
       const cred = await signInWithEmailAndPassword(auth, email, pass);
       window.jsgCurrentUser = cred.user;
-      alert('LOGIN OK — uid: ' + cred.user.uid);
-      window.jsgCpShowDashboard(cred.user);
+      const u = cred.user;
+
+      // Show dashboard
+      document.getElementById('cpAuthBox').style.display = 'none';
+      document.getElementById('cpDashboard').style.display = 'block';
+
+      // Get client name
+      try {
+        const clientDoc = await getDoc(doc(db, 'clients', u.uid));
+        if (clientDoc.exists()) document.getElementById('cpUserName').textContent = clientDoc.data().name || u.email;
+        else document.getElementById('cpUserName').textContent = u.email;
+      } catch(e2) { document.getElementById('cpUserName').textContent = u.email; }
+
+      // Load projects
+      const projectsEl = document.getElementById('cpProjectsList');
+      const noProj = document.getElementById('cpNoProjects');
+      try {
+        const q = query(collection(db, 'projects'), where('clientUid', '==', u.uid));
+        const snap = await getDocs(q);
+        alert('PROJECTS: ' + snap.size + ' found for uid: ' + u.uid);
+        if (snap.empty) { noProj.style.display = 'block'; return; }
+        noProj.style.display = 'none';
+        const statusColors = { running:'#4A90D9', completed:'#5B8F5B', pending:'#C7972C', cancelled:'#E05050' };
+        const statusLabels = { running:'🔵 In Progress', completed:'✅ Completed', pending:'⏳ Pending', cancelled:'❌ Cancelled' };
+        let html = '';
+        snap.forEach(d => {
+          const p = d.data();
+          const paid = Number(p.paid)||0, total = Number(p.amount)||0;
+          const pct = total > 0 ? Math.min(100, Math.round(paid/total*100)) : 0;
+          const prog = p.progress || 0;
+          html += `<div style="background:#1B2026;border-radius:8px;padding:18px;border-left:3px solid ${statusColors[p.status]||'#3D454D'};margin-bottom:12px;">
+            <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:10px;">
+              <div><div style="color:#F4F1E8;font-weight:600;font-size:15px;">${p.project||'Project'}</div>
+              <div style="font-size:12px;color:#6B7480;margin-top:2px;">${p.startDate||''}</div></div>
+              <span style="font-size:11px;padding:3px 8px;background:${statusColors[p.status]||'#3D454D'}22;color:${statusColors[p.status]||'#6B7480'};border-radius:3px;">${statusLabels[p.status]||p.status}</span>
+            </div>
+            <div style="margin-bottom:10px;">
+              <div style="display:flex;justify-content:space-between;font-size:12px;color:#6B7480;margin-bottom:4px;"><span>Work Progress</span><span>${prog}%</span></div>
+              <div style="background:#252C35;border-radius:3px;height:6px;"><div style="background:#C7972C;height:6px;border-radius:3px;width:${prog}%;"></div></div>
+            </div>
+            <div style="display:flex;justify-content:space-between;font-size:13px;">
+              <div><span style="color:#6B7480;">Total: </span><span style="color:#F4F1E8;font-weight:600;">₹${total.toLocaleString('en-IN')}</span></div>
+              <div><span style="color:#6B7480;">Paid: </span><span style="color:${pct>=100?'#5B8F5B':'#E05050'};font-weight:600;">₹${paid.toLocaleString('en-IN')} (${pct}%)</span></div>
+            </div>
+            ${p.notes ? `<div style="margin-top:10px;font-size:12px;color:#6B7480;border-top:1px solid #252C35;padding-top:10px;">${p.notes}</div>` : ''}
+          </div>`;
+        });
+        projectsEl.innerHTML = html;
+      } catch(e3) { alert('Query error: ' + e3.message); }
     } catch(e) {
       errEl.textContent = e.code === 'auth/invalid-credential' ? 'Wrong email or password.' : e.message;
       errEl.style.display = 'block';
